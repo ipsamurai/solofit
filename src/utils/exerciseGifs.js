@@ -123,6 +123,17 @@ function getFocusBodyParts(focusStr) {
   return null;
 }
 
+// ─── Catalog export for AI prompt constraint ─────────────────────────────────
+/**
+ * Flat list of available exercises for injecting into AI prompts.
+ * Gemini must only pick exercises from this list so every exercise has a GIF.
+ */
+export const EXERCISE_CATALOG = EXERCISES.map((ex) => ({
+  name: ex.name,
+  bodyParts: ex.bodyParts,
+  muscles: ex.muscles,
+}));
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -145,7 +156,7 @@ export function findExerciseGif(exerciseName, workoutFocus) {
     }
   }
 
-  if (best && bestScore >= 1) {
+  if (best && bestScore >= 2) {
     return { source: GIF_MAP[best.id], matchedName: best.name };
   }
 

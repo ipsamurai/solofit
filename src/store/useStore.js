@@ -61,6 +61,10 @@ const useStore = create((set, get) => ({
       xp: state.xp + 50,
     })),
 
+  // Auth
+  authUser: null,
+  setAuthUser: (authUser) => set({ authUser }),
+
   // Onboarding completion
   hasOnboarded: false,
   setHasOnboarded: (v) => set({ hasOnboarded: v }),
