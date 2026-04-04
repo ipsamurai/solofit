@@ -1,16 +1,33 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
 import ExerciseViewer3D from '../components/ExerciseViewer3D';
 import useStore from '../store/useStore';
+import { findExerciseGif } from '../utils/exerciseGifs';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../constants/theme';
 
-export default function WorkoutScreen({ navigation }) {
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+export default function WorkoutScreen() {
   const { fitnessPlan, readiness, addXP } = useStore();
   const [selectedDay, setSelectedDay] = useState(0);
   const [completedExercises, setCompletedExercises] = useState({});
+  const [expandedGifs, setExpandedGifs] = useState(new Set());
 
   const workoutPlan = fitnessPlan?.workout_plan;
   const todayWorkout = workoutPlan?.[selectedDay];
@@ -25,6 +42,16 @@ export default function WorkoutScreen({ navigation }) {
         next[key] = true;
         addXP(10);
       }
+      return next;
+    });
+  };
+
+  const toggleGif = (key) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedGifs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -49,7 +76,14 @@ export default function WorkoutScreen({ navigation }) {
         <Text style={styles.title}>Workout Plan</Text>
 
         {readiness && (
-          <View style={[styles.readinessBanner, { backgroundColor: readiness.readiness_score >= 75 ? COLORS.success + '20' : readiness.readiness_score >= 45 ? COLORS.warning + '20' : COLORS.danger + '20' }]}>
+          <View style={[
+            styles.readinessBanner,
+            { backgroundColor: readiness.readiness_score >= 75
+                ? COLORS.success + '20'
+                : readiness.readiness_score >= 45
+                ? COLORS.warning + '20'
+                : COLORS.danger + '20' },
+          ]}>
             <Text style={styles.readinessText}>
               Readiness: {readiness.readiness_score}/100 — {readiness.recommendation}
             </Text>
@@ -58,7 +92,7 @@ export default function WorkoutScreen({ navigation }) {
 
         {/* Day Selector */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
-          {workoutPlan.map((day, i) => (
+          {workoutPlan.map((_, i) => (
             <TouchableOpacity
               key={i}
               style={[styles.dayChip, selectedDay === i && styles.dayChipActive]}
@@ -82,13 +116,16 @@ export default function WorkoutScreen({ navigation }) {
             {todayWorkout.exercises?.map((ex, i) => {
               const key = `${selectedDay}-${i}`;
               const done = completedExercises[key];
+              const gifOpen = expandedGifs.has(key);
+              const gifResult = findExerciseGif(ex.name, todayWorkout.focus);
+
               return (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => toggleExercise(selectedDay, i)}
-                  activeOpacity={0.7}
-                >
-                  <Card style={[styles.exerciseCard, done && styles.exerciseCardDone]}>
+                <Card key={i} style={[styles.exerciseCard, done && styles.exerciseCardDone]}>
+                  {/* Tap row to mark complete */}
+                  <TouchableOpacity
+                    onPress={() => toggleExercise(selectedDay, i)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.exerciseHeader}>
                       <View style={[styles.checkbox, done && styles.checkboxDone]}>
                         {done && <Ionicons name="checkmark" size={14} color={COLORS.text} />}
@@ -109,8 +146,43 @@ export default function WorkoutScreen({ navigation }) {
                       </View>
                     </View>
                     {ex.notes && <Text style={styles.notes}>{ex.notes}</Text>}
-                  </Card>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+
+                  {/* How-to GIF dropdown — only shown when a match exists */}
+                  {gifResult && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.gifToggle}
+                        onPress={() => toggleGif(key)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons
+                          name="play-circle-outline"
+                          size={15}
+                          color={COLORS.primary}
+                        />
+                        <Text style={styles.gifToggleText}>How to perform</Text>
+                        <Ionicons
+                          name={gifOpen ? 'chevron-up' : 'chevron-down'}
+                          size={15}
+                          color={COLORS.textSecondary}
+                          style={{ marginLeft: 'auto' }}
+                        />
+                      </TouchableOpacity>
+
+                      {gifOpen && (
+                        <View style={styles.gifContainer}>
+                          <Image
+                            source={gifResult.source}
+                            style={styles.gifImage}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.gifCaption}>{gifResult.matchedName}</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </Card>
               );
             })}
           </>
@@ -148,12 +220,18 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
   emptyTitle: { ...FONTS.h2, marginTop: SPACING.lg },
   emptyText: { ...FONTS.bodySmall, textAlign: 'center', marginTop: SPACING.sm },
-  readinessBanner: { padding: SPACING.sm, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.md },
+  readinessBanner: {
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+  },
   readinessText: { ...FONTS.bodySmall, fontWeight: '600', textAlign: 'center' },
   dayScroll: { marginBottom: SPACING.md },
   dayChip: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: BORDER_RADIUS.full,
     marginRight: SPACING.sm,
   },
   dayChipActive: { backgroundColor: COLORS.primary },
@@ -162,22 +240,87 @@ const styles = StyleSheet.create({
   focusCard: { marginBottom: SPACING.md },
   focusTitle: { ...FONTS.h2, color: COLORS.primary },
   focusMeta: { ...FONTS.caption, marginTop: 2 },
+
+  // Exercise card
   exerciseCard: { marginBottom: SPACING.sm },
-  exerciseCardDone: { opacity: 0.6 },
+  exerciseCardDone: { opacity: 0.55 },
   exerciseHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   checkbox: {
-    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-    borderColor: COLORS.textMuted, alignItems: 'center', justifyContent: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkboxDone: { backgroundColor: COLORS.success, borderColor: COLORS.success },
   exerciseName: { ...FONTS.body, fontWeight: '600', flex: 1 },
   exerciseNameDone: { textDecorationLine: 'line-through' },
-  exerciseDetails: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm, marginLeft: 36 },
-  detailChip: { backgroundColor: COLORS.surfaceLight, paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm },
+  exerciseDetails: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+    marginLeft: 36,
+  },
+  detailChip: {
+    backgroundColor: COLORS.surfaceLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
   detailText: { ...FONTS.caption },
-  notes: { ...FONTS.caption, color: COLORS.textSecondary, marginTop: SPACING.xs, marginLeft: 36 },
+  notes: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+    marginLeft: 36,
+  },
+
+  // GIF dropdown toggle row
+  gifToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  gifToggleText: {
+    ...FONTS.caption,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+
+  // GIF panel
+  gifContainer: {
+    alignItems: 'center',
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  gifImage: {
+    width: 200,
+    height: 200,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  gifCaption: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+
+  // Risk notes
   riskCard: { marginTop: SPACING.lg, borderLeftWidth: 3, borderLeftColor: COLORS.warning },
-  riskHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
+  riskHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
   riskTitle: { ...FONTS.body, fontWeight: '600', color: COLORS.warning },
   riskText: { ...FONTS.bodySmall, marginBottom: 4 },
 });
