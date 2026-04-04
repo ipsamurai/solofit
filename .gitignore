@@ -44,7 +44,10 @@ yarn-error.*
 
 # local env files
 .env
-.env*.local
+.env.local
+.env.*
+!.env.example
+!.env*.example
 
 # typescript
 *.tsbuildinfo
