@@ -15,7 +15,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Solofit uses the camera for biometric scanning and posture detection."
+        "NSCameraUsageDescription": "Solofit uses the camera for biometric scanning and posture detection.",
+        "NSMicrophoneUsageDescription": "Solofit requires microphone access to record video for vitals analysis."
       }
     },
     "android": {
@@ -23,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F1A"
       },
-      "permissions": ["CAMERA"]
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +33,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Solofit needs camera access for biometric scanning and posture detection."
+          "cameraPermission": "Solofit needs camera access for biometric scanning and posture detection.",
+          "microphonePermission": "Solofit needs microphone access to record video for vitals analysis.",
+          "recordAudioAndroid": true
         }
       ]
     ]

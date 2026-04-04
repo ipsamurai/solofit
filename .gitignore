@@ -18,7 +18,17 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 .context.md
+.context1.md
 CLAUDE.md
+
+# Presage SDK / native exploration (not part of RN app)
+CMakeLists.txt
+hello_vitals.cpp
+*.whl
+SmartSpectra/
+presage_python_whl/
+build/
+v2_response.json
 
 # Metro
 .metro-health-check*
