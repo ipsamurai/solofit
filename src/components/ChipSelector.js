@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { COLORS, FONTS, BORDER_RADIUS, SPACING } from "../constants/theme";
 
 export default function ChipSelector({
@@ -34,16 +34,16 @@ export default function ChipSelector({
 				const active = isSelected(id);
 
 				return (
-					<TouchableOpacity
+					<Pressable
 						key={id}
 						style={[styles.chip, active && styles.chipActive]}
 						onPress={() => handlePress(id)}
-						activeOpacity={0.7}
+						hitSlop={6}
 					>
 						<Text style={[styles.chipText, active && styles.chipTextActive]}>
 							{label}
 						</Text>
-					</TouchableOpacity>
+					</Pressable>
 				);
 			})}
 		</View>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GradientButton from "../../components/GradientButton";
 import ChipSelector from "../../components/ChipSelector";
@@ -39,24 +39,25 @@ export default function GoalsScreen({ navigation }) {
 
 				<Text style={styles.label}>Activity Level</Text>
 				{ACTIVITY_LEVELS.map((level) => (
-					<View
+					<TouchableOpacity
 						key={level.id}
 						style={[
 							styles.optionCard,
 							activityLevel === level.id && styles.optionCardActive,
 						]}
+						onPress={() => setActivityLevel(level.id)}
+						activeOpacity={0.8}
 					>
 						<Text
 							style={[
 								styles.optionLabel,
 								activityLevel === level.id && styles.optionLabelActive,
 							]}
-							onPress={() => setActivityLevel(level.id)}
 						>
 							{level.label}
 						</Text>
 						<Text style={styles.optionDesc}>{level.description}</Text>
-					</View>
+					</TouchableOpacity>
 				))}
 
 				<View style={styles.buttonContainer}>

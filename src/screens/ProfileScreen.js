@@ -24,10 +24,33 @@ function StatBox({ label, value, icon, color }) {
 }
 
 function InfoRow({ label, value }) {
+	const hasArrayValue = Array.isArray(value);
+	const displayText =
+		hasArrayValue ? null : value || "Not set";
+	const listValues = hasArrayValue
+		? value.filter(Boolean).map((v) => String(v).replace(/_/g, " "))
+		: [];
+
 	return (
 		<View style={styles.infoRow}>
 			<Text style={styles.infoLabel}>{label}</Text>
-			<Text style={styles.infoValue}>{value || "Not set"}</Text>
+			<View style={styles.infoValueWrap}>
+				{hasArrayValue ? (
+					listValues.length > 0 ? (
+						<View style={styles.valueChipWrap}>
+							{listValues.map((item, idx) => (
+								<View key={`${label}-${idx}`} style={styles.valueChip}>
+									<Text style={styles.valueChipText}>{item}</Text>
+								</View>
+							))}
+						</View>
+					) : (
+						<Text style={styles.infoValue}>None</Text>
+					)
+				) : (
+					<Text style={styles.infoValue}>{displayText}</Text>
+				)}
+			</View>
 		</View>
 	);
 }
@@ -118,15 +141,15 @@ export default function ProfileScreen({ navigation }) {
 					<InfoRow label="Diet Type" value={user?.dietType} />
 					<InfoRow
 						label="Allergies"
-						value={user?.allergies?.join(", ") || "None"}
+						value={user?.allergies}
 					/>
 					<InfoRow
 						label="Health Issues"
-						value={user?.healthIssues?.join(", ") || "None"}
+						value={user?.healthIssues}
 					/>
 					<InfoRow
 						label="Equipment"
-						value={user?.equipment?.join(", ") || "None"}
+						value={user?.equipment}
 					/>
 				</Card>
 
@@ -221,13 +244,40 @@ const styles = StyleSheet.create({
 	sectionTitle: { ...FONTS.h3, marginBottom: SPACING.md },
 	infoRow: {
 		flexDirection: "row",
-		justifyContent: "space-between",
+		alignItems: "flex-start",
 		paddingVertical: SPACING.sm,
 		borderBottomWidth: 1,
 		borderBottomColor: COLORS.border,
 	},
-	infoLabel: { ...FONTS.bodySmall },
-	infoValue: { ...FONTS.body },
+	infoLabel: { ...FONTS.bodySmall, width: 96, marginTop: 2 },
+	infoValueWrap: {
+		flex: 1,
+		alignItems: "flex-end",
+	},
+	infoValue: {
+		...FONTS.body,
+		textAlign: "right",
+		flexShrink: 1,
+	},
+	valueChipWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		justifyContent: "flex-end",
+		gap: SPACING.xs,
+	},
+	valueChip: {
+		backgroundColor: COLORS.surface,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: BORDER_RADIUS.md,
+		paddingHorizontal: SPACING.xs + 2,
+		paddingVertical: 2,
+	},
+	valueChipText: {
+		...FONTS.caption,
+		color: COLORS.textSecondary,
+		textTransform: "capitalize",
+	},
 	goalsWrap: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
 	goalChip: {
 		backgroundColor: COLORS.surface,

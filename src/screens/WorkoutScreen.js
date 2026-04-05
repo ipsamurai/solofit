@@ -59,6 +59,13 @@ export default function WorkoutScreen() {
 		});
 	};
 
+	const formatRestLabel = (rest) =>
+		String(rest ?? "")
+			.replace(/\bseconds?\b/gi, "s")
+			.replace(/\bsecs?\b/gi, "s")
+			.replace(/\s+/g, "")
+			.trim();
+
 	if (!workoutPlan) {
 		return (
 			<SafeAreaView style={styles.safe}>
@@ -175,13 +182,13 @@ export default function WorkoutScreen() {
 										</View>
 										<View style={styles.exerciseDetails}>
 											<View style={styles.detailChip}>
-												<Text style={styles.detailText}>{ex.sets} sets</Text>
+												<Text style={styles.detailText}>SETS:{ex.sets}</Text>
 											</View>
 											<View style={styles.detailChip}>
-												<Text style={styles.detailText}>{ex.reps} reps</Text>
+												<Text style={styles.detailText}>REPS:{ex.reps}</Text>
 											</View>
 											<View style={styles.detailChip}>
-												<Text style={styles.detailText}>{ex.rest} rest</Text>
+												<Text style={styles.detailText}>REST:{formatRestLabel(ex.rest)}</Text>
 											</View>
 										</View>
 										{ex.notes && <Text style={styles.notes}>{ex.notes}</Text>}

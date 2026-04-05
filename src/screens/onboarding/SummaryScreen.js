@@ -9,11 +9,33 @@ import useStore from "../../store/useStore";
 import { COLORS, FONTS, SPACING } from "../../constants/theme";
 
 function SummaryRow({ icon, label, value }) {
+	const hasArrayValue = Array.isArray(value);
+	const listValues = hasArrayValue
+		? value.filter(Boolean).map((v) => String(v).replace(/_/g, " "))
+		: [];
+	const displayValue = hasArrayValue ? null : value || "Not set";
+
 	return (
 		<View style={styles.row}>
 			<Ionicons name={icon} size={18} color={COLORS.primary} />
 			<Text style={styles.rowLabel}>{label}</Text>
-			<Text style={styles.rowValue}>{value || "Not set"}</Text>
+			<View style={styles.rowValueWrap}>
+				{hasArrayValue ? (
+					listValues.length > 0 ? (
+						<View style={styles.valueChipWrap}>
+							{listValues.map((item, idx) => (
+								<View key={`${label}-${idx}`} style={styles.valueChip}>
+									<Text style={styles.valueChipText}>{item}</Text>
+								</View>
+							))}
+						</View>
+					) : (
+						<Text style={styles.rowValue}>None</Text>
+					)
+				) : (
+					<Text style={styles.rowValue}>{displayValue}</Text>
+				)}
+			</View>
 		</View>
 	);
 }
@@ -53,7 +75,7 @@ export default function SummaryScreen() {
 
 				<Card style={styles.card}>
 					<Text style={styles.sectionTitle}>Goals & Lifestyle</Text>
-					<SummaryRow icon="trophy" label="Goals" value={d.goals?.join(", ")} />
+					<SummaryRow icon="trophy" label="Goals" value={d.goals} />
 					<SummaryRow
 						icon="speedometer"
 						label="Activity"
@@ -67,7 +89,7 @@ export default function SummaryScreen() {
 					<SummaryRow
 						icon="warning"
 						label="Allergies"
-						value={d.allergies?.join(", ") || "None"}
+						value={d.allergies}
 					/>
 				</Card>
 
@@ -76,12 +98,12 @@ export default function SummaryScreen() {
 					<SummaryRow
 						icon="medkit"
 						label="Issues"
-						value={d.healthIssues?.join(", ") || "None"}
+						value={d.healthIssues}
 					/>
 					<SummaryRow
 						icon="barbell"
 						label="Equipment"
-						value={d.equipment?.join(", ") || "None"}
+						value={d.equipment}
 					/>
 				</Card>
 
@@ -107,12 +129,44 @@ const styles = StyleSheet.create({
 	sectionTitle: { ...FONTS.h3, marginBottom: SPACING.md },
 	row: {
 		flexDirection: "row",
-		alignItems: "center",
+		alignItems: "flex-start",
 		paddingVertical: SPACING.sm,
 		borderBottomWidth: 1,
 		borderBottomColor: COLORS.border,
 	},
-	rowLabel: { ...FONTS.bodySmall, flex: 1, marginLeft: SPACING.sm },
-	rowValue: { ...FONTS.body, flex: 1, textAlign: "right" },
+	rowLabel: {
+		...FONTS.bodySmall,
+		width: 98,
+		marginLeft: SPACING.sm,
+		marginTop: 2,
+	},
+	rowValueWrap: {
+		flex: 1,
+		alignItems: "flex-end",
+	},
+	rowValue: {
+		...FONTS.body,
+		textAlign: "right",
+		flexShrink: 1,
+	},
+	valueChipWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		justifyContent: "flex-end",
+		gap: SPACING.xs,
+	},
+	valueChip: {
+		backgroundColor: COLORS.surface,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 999,
+		paddingHorizontal: SPACING.xs + 2,
+		paddingVertical: 2,
+	},
+	valueChipText: {
+		...FONTS.caption,
+		color: COLORS.textSecondary,
+		textTransform: "capitalize",
+	},
 	buttonContainer: { marginTop: SPACING.lg },
 });
