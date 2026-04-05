@@ -178,7 +178,12 @@ export default function PostureScreen() {
 const styles = StyleSheet.create({
 	safe: { flex: 1, backgroundColor: COLORS.background },
 	container: { flex: 1, padding: SPACING.lg },
-	title: { ...FONTS.h1, fontSize: 44, lineHeight: 44 },
+	title: {
+		...FONTS.h1,
+		fontSize: 44,
+		lineHeight: 44,
+		color: COLORS.primaryDark,
+	},
 	subtitle: { ...FONTS.bodySmall, marginTop: SPACING.xs },
 	cameraArea: {
 		height: 250,
@@ -190,6 +195,8 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		borderWidth: 1.5,
 		borderColor: COLORS.border,
+		borderTopWidth: 3,
+		borderTopColor: COLORS.secondary,
 	},
 	cameraPlaceholder: { alignItems: "center" },
 	cameraText: { ...FONTS.bodySmall, marginTop: SPACING.sm },

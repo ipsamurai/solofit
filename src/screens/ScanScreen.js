@@ -45,7 +45,7 @@ const PHASE = {
 	ERROR: "error",
 };
 
-export default function ScanScreen() {
+export default function ScanScreen({ navigation, route }) {
 	const { user, setVitals, setReadiness, vitals, readiness } = useStore();
 
 	const [permission, requestPermission] = useCameraPermissions();
@@ -59,14 +59,19 @@ export default function ScanScreen() {
 	const cameraRef = useRef(null);
 	const countdownTimer = useRef(null);
 	const recordTimer = useRef(null);
+	const autoReturnTimer = useRef(null);
+	const lastAutoStartTokenRef = useRef(null);
 	const pulseAnim = useRef(new Animated.Value(1)).current;
 	const progressAnim = useRef(new Animated.Value(0)).current;
+	const autoStartToken = route?.params?.autoStartToken;
+	const shouldReturnToDashboard = !!route?.params?.returnToDashboard;
 
 	// Cleanup on unmount
 	useEffect(() => {
 		return () => {
 			clearInterval(countdownTimer.current);
 			clearInterval(recordTimer.current);
+			clearTimeout(autoReturnTimer.current);
 		};
 	}, []);
 
@@ -219,6 +224,7 @@ export default function ScanScreen() {
 	const handleReset = useCallback(() => {
 		clearInterval(countdownTimer.current);
 		clearInterval(recordTimer.current);
+		clearTimeout(autoReturnTimer.current);
 		try {
 			cameraRef.current?.stopRecording();
 		} catch (_) {}
@@ -229,7 +235,31 @@ export default function ScanScreen() {
 		setRecordElapsed(0);
 		setProgressMsg("");
 		setErrorMsg("");
+		lastAutoStartTokenRef.current = null;
 	}, []);
+
+	useEffect(() => {
+		if (!autoStartToken) return;
+		if (phase !== PHASE.IDLE) return;
+		if (lastAutoStartTokenRef.current === autoStartToken) return;
+
+		lastAutoStartTokenRef.current = autoStartToken;
+		handleStartScan();
+	}, [autoStartToken, phase, handleStartScan]);
+
+	useEffect(() => {
+		if (!(phase === PHASE.DONE && shouldReturnToDashboard)) return;
+
+		autoReturnTimer.current = setTimeout(() => {
+			navigation.setParams?.({
+				autoStartToken: null,
+				returnToDashboard: false,
+			});
+			navigation.navigate("Dashboard");
+		}, 700);
+
+		return () => clearTimeout(autoReturnTimer.current);
+	}, [phase, shouldReturnToDashboard, navigation]);
 
 	// ─── Derived state ────────────────────────────────────────────────────────
 	const isRecording = phase === PHASE.RECORDING;
@@ -580,8 +610,10 @@ const styles = StyleSheet.create({
 		paddingHorizontal: SPACING.lg,
 		paddingTop: SPACING.md,
 		paddingBottom: SPACING.sm,
+		borderBottomWidth: 1,
+		borderBottomColor: COLORS.border,
 	},
-	title: { ...FONTS.h1 },
+	title: { ...FONTS.h1, color: COLORS.primaryDark },
 	subtitle: { ...FONTS.bodySmall, marginTop: 4 },
 
 	// ── Camera ──────────────────────────────────────────────────────────────────
@@ -592,6 +624,8 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 		borderWidth: 1,
 		borderColor: COLORS.border,
+		borderTopWidth: 3,
+		borderTopColor: COLORS.secondary,
 	},
 	camera: {
 		height: 390,
@@ -761,6 +795,8 @@ const styles = StyleSheet.create({
 		gap: SPACING.md,
 		borderWidth: 1,
 		borderColor: COLORS.border,
+		borderTopWidth: 3,
+		borderTopColor: COLORS.secondary,
 	},
 	permTitle: { ...FONTS.h3, textAlign: "center" },
 	permDesc: { ...FONTS.bodySmall, textAlign: "center", lineHeight: 20 },

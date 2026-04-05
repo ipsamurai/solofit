@@ -240,8 +240,10 @@ const styles = StyleSheet.create({
 	},
 	statValue: { ...FONTS.h3, marginTop: SPACING.xs },
 	statLabel: { ...FONTS.caption, marginTop: 2 },
-	card: { marginBottom: SPACING.md },
-	sectionTitle: { ...FONTS.h3, marginBottom: SPACING.md },
+	card: {
+		marginBottom: SPACING.md,
+	},
+	sectionTitle: { ...FONTS.h3, marginBottom: SPACING.md, color: COLORS.primaryDark },
 	infoRow: {
 		flexDirection: "row",
 		alignItems: "flex-start",

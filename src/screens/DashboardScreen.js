@@ -64,6 +64,13 @@ export default function DashboardScreen({ navigation }) {
 		setIsGeneratingPlan(false);
 	};
 
+	const handleOpenScanScreen = () => {
+		navigation.navigate("Scan", {
+			autoStartToken: Date.now(),
+			returnToDashboard: true,
+		});
+	};
+
 	const onRefresh = async () => {
 		setRefreshing(true);
 		await handleScan();
@@ -145,9 +152,8 @@ export default function DashboardScreen({ navigation }) {
 				)}
 
 				<GradientButton
-					title={scanning ? "Scanning..." : "Scan Vitals"}
-					onPress={handleScan}
-					loading={scanning}
+					title="Scan Vitals"
+					onPress={handleOpenScanScreen}
 					style={{ marginTop: SPACING.md }}
 					variant={vitals ? "secondary" : "primary"}
 				/>
@@ -284,13 +290,17 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 4,
-		backgroundColor: COLORS.secondary,
+		backgroundColor: COLORS.surfaceLight,
+		borderWidth: 1,
+		borderColor: COLORS.border,
 		paddingHorizontal: SPACING.sm,
 		paddingVertical: SPACING.xs,
 		borderRadius: BORDER_RADIUS.sm,
 	},
-	streakText: { ...FONTS.bodySmall, color: COLORS.surfaceLight },
-	xpCard: { marginTop: SPACING.md },
+	streakText: { ...FONTS.bodySmall, color: COLORS.text },
+	xpCard: {
+		marginTop: SPACING.md,
+	},
 	xpRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
 	xpText: { ...FONTS.body },
 	xpLevel: { ...FONTS.caption, marginLeft: "auto" },
@@ -308,6 +318,7 @@ const styles = StyleSheet.create({
 	},
 	sectionTitle: {
 		...FONTS.h3,
+		color: COLORS.primaryDark,
 		marginBottom: SPACING.sm,
 		marginTop: SPACING.md,
 	},
@@ -336,7 +347,7 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: COLORS.border,
 	},
-	mealType: { ...FONTS.caption, width: 70, flexShrink: 0 },
+	mealType: { ...FONTS.caption, width: 70, flexShrink: 0, color: COLORS.primaryDark },
 	mealName: { ...FONTS.body, flex: 1, marginHorizontal: SPACING.sm },
 	mealCal: { ...FONTS.bodySmall, flexShrink: 0 },
 	macroRow: {
@@ -344,7 +355,7 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		marginTop: SPACING.md,
 	},
-	macroText: { ...FONTS.bodySmall },
+	macroText: { ...FONTS.bodySmall, color: COLORS.primaryDark },
 	tipRow: {
 		flexDirection: "row",
 		alignItems: "flex-start",

@@ -23,15 +23,21 @@ function normalizeExerciseName(name = "") {
 		.trim();
 }
 
-function getWorkoutBounds(readinessScore = 50) {
-	if (readinessScore >= 75)
-		return { minPerDay: 4, maxPerDay: 7, minUniqueWeek: 14 };
-	if (readinessScore >= 45)
-		return { minPerDay: 3, maxPerDay: 6, minUniqueWeek: 12 };
-	return { minPerDay: 2, maxPerDay: 5, minUniqueWeek: 10 };
+function getWorkoutBounds(userData) {
+	const minPerDay = 2;
+	const maxPerDay = 4;
+	// Cap the unique-exercise requirement to the number of exercises the user
+	// can actually perform. A bodyweight-only user may have fewer than 10
+	// qualifying exercises in the 30-item catalog, so requiring 10 would cause
+	// every plan — including the deterministic fallback — to fail validation.
+	const availableCount = userData
+		? EXERCISE_CATALOG.filter((ex) => isExerciseAllowedForUser(ex.name, userData)).length
+		: EXERCISE_CATALOG.length;
+	const minUniqueWeek = Math.max(4, Math.min(10, availableCount));
+	return { minPerDay, maxPerDay, minUniqueWeek };
 }
 
-function validateAndNormalizeWorkoutPlan(plan, readiness) {
+function validateAndNormalizeWorkoutPlan(plan, readiness, userData) {
 	if (!plan || typeof plan !== "object") {
 		throw new Error("Plan is not a valid object.");
 	}
@@ -40,12 +46,11 @@ function validateAndNormalizeWorkoutPlan(plan, readiness) {
 		throw new Error("workout_plan must contain exactly 7 days.");
 	}
 
-	const score = readiness?.readiness_score ?? 50;
-	const { minPerDay, maxPerDay, minUniqueWeek } = getWorkoutBounds(score);
+	const { minPerDay, maxPerDay, minUniqueWeek } = getWorkoutBounds(userData);
 
-	const weekFrequency = new Map();
 	const uniqueWeekNames = new Set();
 	let recoveryDays = 0;
+	let previousDayNames = new Set();
 
 	plan.workout_plan = plan.workout_plan.map((day, dayIdx) => {
 		const focusLower = String(day?.focus || "").toLowerCase();
@@ -57,15 +62,13 @@ function validateAndNormalizeWorkoutPlan(plan, readiness) {
 
 		if (isRecoveryDay) recoveryDays += 1;
 
-		const minForDay = isRecoveryDay ? Math.max(2, minPerDay - 1) : minPerDay;
-
 		if (!Array.isArray(day?.exercises)) {
 			throw new Error(`Day ${dayIdx + 1} is missing an exercises array.`);
 		}
 
-		if (day.exercises.length < minForDay || day.exercises.length > maxPerDay) {
+		if (day.exercises.length < minPerDay || day.exercises.length > maxPerDay) {
 			throw new Error(
-				`Day ${dayIdx + 1} must contain ${minForDay}-${maxPerDay} exercises, got ${day.exercises.length}.`,
+				`Day ${dayIdx + 1} must contain ${minPerDay}-${maxPerDay} exercises, got ${day.exercises.length}.`,
 			);
 		}
 
@@ -85,19 +88,23 @@ function validateAndNormalizeWorkoutPlan(plan, readiness) {
 					`Day ${dayIdx + 1} has duplicate exercise "${canonicalName}".`,
 				);
 			}
+
+			if (previousDayNames.has(canonicalName)) {
+				throw new Error(
+					`Day ${dayIdx + 1} repeats "${canonicalName}" from the previous day. Consecutive-day repeats are not allowed.`,
+				);
+			}
 			namesInDay.add(canonicalName);
 
 			uniqueWeekNames.add(canonicalName);
-			weekFrequency.set(
-				canonicalName,
-				(weekFrequency.get(canonicalName) || 0) + 1,
-			);
 
 			return {
 				...ex,
 				name: canonicalName,
 			};
 		});
+
+		previousDayNames = new Set(normalizedExercises.map((ex) => ex.name));
 
 		return {
 			...day,
@@ -115,14 +122,6 @@ function validateAndNormalizeWorkoutPlan(plan, readiness) {
 		throw new Error(
 			`workout_plan has low variety: ${uniqueWeekNames.size} unique exercises, need at least ${minUniqueWeek}.`,
 		);
-	}
-
-	for (const [name, count] of weekFrequency.entries()) {
-		if (count > 2) {
-			throw new Error(
-				`Exercise "${name}" appears ${count} times. Max allowed is 2 per week.`,
-			);
-		}
 	}
 
 	return plan;
@@ -158,9 +157,9 @@ ${compactJson}${JSON.stringify(previousJson).length > compactJson.length ? "...(
 Hard rules:
 - Keep the same output schema.
 - workout_plan must have exactly 7 days.
-- Each day must have multiple exercises (not a single-exercise day).
+- Each day must have 2-4 exercises.
 - No duplicate exercise names inside the same day.
-- Any single exercise may appear at most 2 times across the whole week.
+- No exercise can repeat on consecutive days.
 - Keep high variety across the week.
 - Exercise names must be EXACT matches from the list below only.
 
@@ -196,10 +195,10 @@ Readiness: ${JSON.stringify(readiness)}
 
 Workout rules:
 - 7 days exactly
-- 2 to 6 exercises/day based on readiness
+- exactly 2-4 exercises/day
 - adjust volume using activity level (sedentary/light lower, active/athlete higher)
 - no duplicate exercise names in a day
-- each exercise max 2 times/week
+- no repeated exercise names on consecutive days
 - avoid movements likely to aggravate health issues
 - respect available equipment strictly (if none, prefer bodyweight-friendly options)
 - use ONLY exact names from this list:
@@ -230,7 +229,7 @@ Vitals: ${JSON.stringify(presageData)}
 Readiness: ${JSON.stringify(readiness)}
 Current plan: ${compactJson}${JSON.stringify(previousJson).length > compactJson.length ? "...(truncated)" : ""}
 Use ONLY these exercise names: ${exerciseNames}
-Hard rules: 7 days, multiple exercises/day, no duplicates in a day, max 2 repeats/week, preserve schema.`;
+Hard rules: 7 days, 2-4 exercises/day, no duplicates in a day, no consecutive-day repeats, preserve schema.`;
 }
 
 function buildParseRecoveryPrompt(userData, presageData, readiness, reason) {
@@ -243,6 +242,9 @@ Readiness: ${JSON.stringify(readiness)}
 
 Rules:
 - exactly 7 workout days
+- each day must have 2-4 exercises
+- no duplicate exercises in the same day
+- no repeated exercises on consecutive days
 - include diet_plan with exactly Breakfast, Lunch, Dinner
 - include 2 alternatives per meal
 - keep schema and numeric fields valid
@@ -379,6 +381,105 @@ function normalizeAndEnsureDietPlan(plan, userData) {
 		tips: Array.isArray(plan?.tips) ? plan.tips : [],
 		risk_notes: Array.isArray(plan?.risk_notes) ? plan.risk_notes : [],
 	};
+}
+
+function closeJsonDelimiters(text) {
+	const stack = [];
+	let inString = false;
+	let escaped = false;
+
+	for (const ch of String(text || "")) {
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (ch === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (ch === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (ch === '"') {
+			inString = true;
+			continue;
+		}
+
+		if (ch === "{" || ch === "[") {
+			stack.push(ch === "{" ? "}" : "]");
+			continue;
+		}
+
+		if (ch === "}" || ch === "]") {
+			if (stack.length && stack[stack.length - 1] === ch) {
+				stack.pop();
+			}
+		}
+	}
+
+	let out = String(text || "").trimEnd();
+	if (inString) out += '"';
+
+	while (stack.length) {
+		out += stack.pop();
+	}
+
+	return out;
+}
+
+function parsePossiblyTruncatedJSON(text) {
+	const normalized = String(text || "")
+		.replace(/```json\n?/g, "")
+		.replace(/```\n?/g, "")
+		.trim();
+
+	const firstBrace = normalized.indexOf("{");
+	if (firstBrace < 0) {
+		throw new Error("No JSON object start found in model output.");
+	}
+
+	let candidate = normalized.slice(firstBrace);
+	if (!candidate) {
+		throw new Error("Empty JSON candidate after trimming model output.");
+	}
+
+	candidate = closeJsonDelimiters(candidate)
+		.replace(/,\s*([}\]])/g, "$1")
+		.replace(/\u0000/g, "")
+		.trim();
+
+	return JSON.parse(candidate);
+}
+
+function buildDeterministicFallbackPlan(userData, readiness, basePlan = {}) {
+	const readinessScore = Number(readiness?.readiness_score ?? 50);
+	const calories = Math.max(1700, readinessScore >= 75 ? 2400 : readinessScore >= 45 ? 2150 : 1950);
+
+	const plan = {
+		...basePlan,
+		workout_plan: buildFallbackWorkoutPlan(basePlan, readiness, userData),
+		diet_plan: {
+			daily_meals: [],
+		},
+		calories,
+		macros: {
+			protein: Math.round(calories * 0.3 / 4),
+			carbs: Math.round(calories * 0.42 / 4),
+			fat: Math.round(calories * 0.28 / 9),
+		},
+		hydration_liters: readinessScore >= 75 ? 3.0 : readinessScore >= 45 ? 2.6 : 2.3,
+		tips: [
+			"Prioritize controlled reps and clean form over speed.",
+			"Progress gradually each week only when recovery feels good.",
+		],
+		risk_notes: Array.isArray(basePlan?.risk_notes) ? basePlan.risk_notes : [],
+	};
+
+	return normalizeAndEnsureDietPlan(plan, userData);
 }
 
 const DEFAULT_WORKOUT_FOCUSES = [
@@ -684,7 +785,14 @@ function getTargetDurationMinutes(readinessScore, activityLevel, isRecoveryDay, 
 	return Math.max(20, Math.min(75, base + adjust));
 }
 
-function selectExercisesForDay(focus, targetCount, weekFrequency, dayIndex, userData = {}) {
+function selectExercisesForDay(
+	focus,
+	targetCount,
+	weekFrequency,
+	dayIndex,
+	userData = {},
+	previousDayNames = new Set(),
+) {
 	const focusLower = String(focus || "").toLowerCase();
 	const rankedAll = EXERCISE_CATALOG.map((ex, idx) => ({
 		name: ex.name,
@@ -703,7 +811,7 @@ function selectExercisesForDay(focus, targetCount, weekFrequency, dayIndex, user
 	const pushIfAllowed = (candidate) => {
 		if (selected.length >= targetCount) return;
 		if (selectedNames.has(candidate.name)) return;
-		if ((weekFrequency.get(candidate.name) || 0) >= 2) return;
+		if (previousDayNames.has(candidate.name)) return;
 		selected.push(candidate.name);
 		selectedNames.add(candidate.name);
 		weekFrequency.set(candidate.name, (weekFrequency.get(candidate.name) || 0) + 1);
@@ -732,6 +840,7 @@ function selectExercisesForDay(focus, targetCount, weekFrequency, dayIndex, user
 		for (const candidate of rankedAll) {
 			if (selected.length >= targetCount) break;
 			if (selectedNames.has(candidate.name)) continue;
+			if (previousDayNames.has(candidate.name)) continue;
 			selected.push(candidate.name);
 			selectedNames.add(candidate.name);
 		}
@@ -743,8 +852,9 @@ function selectExercisesForDay(focus, targetCount, weekFrequency, dayIndex, user
 function buildFallbackWorkoutPlan(originalPlan, readiness, userData = {}) {
 	const score = readiness?.readiness_score ?? 50;
 	const activityLevel = String(userData?.activityLevel || "moderate");
-	const { minPerDay, maxPerDay } = getWorkoutBounds(score);
+	const { minPerDay, maxPerDay } = getWorkoutBounds(userData);
 	const weekFrequency = new Map();
+	let previousDayNames = new Set();
 	const incomingDays = Array.isArray(originalPlan?.workout_plan)
 		? originalPlan.workout_plan
 		: [];
@@ -774,7 +884,10 @@ function buildFallbackWorkoutPlan(originalPlan, readiness, userData = {}) {
 			weekFrequency,
 			dayIdx,
 			userData,
+			previousDayNames,
 		);
+
+		previousDayNames = new Set(names);
 
 		const template = buildFallbackExerciseTemplate(
 			score,
@@ -811,8 +924,9 @@ function tuneWorkoutPlanForUser(plan, userData, readiness) {
 
 	const score = readiness?.readiness_score ?? 50;
 	const activityLevel = String(userData?.activityLevel || "moderate");
-	const { minPerDay, maxPerDay } = getWorkoutBounds(score);
+	const { minPerDay, maxPerDay } = getWorkoutBounds(userData);
 	const weekFrequency = new Map();
+	let previousDayNames = new Set();
 
 	const tunedWorkout = plan.workout_plan.map((day, dayIdx) => {
 		const focus = String(day?.focus || DEFAULT_WORKOUT_FOCUSES[dayIdx] || "Workout");
@@ -840,7 +954,7 @@ function tuneWorkoutPlanForUser(plan, userData, readiness) {
 			const canonicalName = EXERCISE_NAME_MAP.get(normalizeExerciseName(ex?.name));
 			if (!canonicalName) continue;
 			if (nameSet.has(canonicalName)) continue;
-			if ((weekFrequency.get(canonicalName) || 0) >= 2) continue;
+			if (previousDayNames.has(canonicalName)) continue;
 			if (!isExerciseAllowedForUser(canonicalName, userData)) continue;
 
 			names.push(canonicalName);
@@ -856,6 +970,7 @@ function tuneWorkoutPlanForUser(plan, userData, readiness) {
 				weekFrequency,
 				dayIdx,
 				userData,
+				previousDayNames,
 			);
 
 			for (const name of generated) {
@@ -891,7 +1006,7 @@ function tuneWorkoutPlanForUser(plan, userData, readiness) {
 			};
 		});
 
-		return {
+		const dayPlan = {
 			...day,
 			day: `Day ${dayIdx + 1}`,
 			focus,
@@ -903,6 +1018,9 @@ function tuneWorkoutPlanForUser(plan, userData, readiness) {
 				Number(day?.duration_minutes),
 			),
 		};
+
+		previousDayNames = new Set(dayPlan.exercises.map((ex) => ex.name));
+		return dayPlan;
 	});
 
 	return {
@@ -916,7 +1034,7 @@ const GEMINI_KEYS = [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(
 );
 
 const DEFAULT_GROQ_FAST_MODEL = "llama-3.1-8b-instant";
-const DEFAULT_GROQ_PLAN_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_GROQ_PLAN_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_GROQ_RECIPE_MODEL = "llama-3.1-8b-instant";
 const DEFAULT_GROQ_TIMEOUT_MS = 45000;
 
@@ -1210,12 +1328,9 @@ Workout Plan:
 
 Workout quality constraints (MANDATORY):
 - Return exactly 7 days in workout_plan
-- Every day must include multiple exercises (never 1 exercise only)
-- High readiness (${readiness?.readiness_score ?? "N/A"}): 4-7 exercises/day
-- Medium readiness: 3-6 exercises/day
-- Low readiness: 2-5 exercises/day (recovery-oriented days allowed)
+- Every day must include 2-4 exercises
 - No duplicate exercise names within a day
-- Across the week, each exact exercise name can appear at most 2 times total
+- No exercise name may repeat on consecutive days
 - Ensure variety: rotate movement patterns/focus so days are not near-identical
 - Use balanced programming (compound + accessory work where possible)
 
@@ -1282,27 +1397,30 @@ async function callGeminiChain(prompt, contextLabel = "request") {
 	throw new Error(`No Gemini key succeeded for ${contextLabel}.`);
 }
 
-// --- Call AI with Groq plan model first, Gemini fallback ---
+// --- Call AI with Gemini primary, Groq fallback ---
 async function callPlanAI(prompt, { groqPrompt } = {}) {
-	let groqError;
+	let geminiError;
+	try {
+		const text = await callGeminiChain(prompt, "plan");
+		console.log("[AI] Gemini plan succeeded");
+		return text;
+	} catch (error) {
+		geminiError = error;
+		console.warn("[AI] Gemini plan failed, trying Groq fallback:", error.message);
+	}
+
 	try {
 		const text = await callGroqPlan(groqPrompt || prompt, {
+			model: "openai/gpt-oss-120b",
 			temperature: 0.35,
 			maxTokens: 1700,
 			jsonMode: false,
 		});
-		console.log("[AI] Groq plan model succeeded");
+		console.log("[AI] Groq fallback model=openai/gpt-oss-120b succeeded");
 		return text;
-	} catch (error) {
-		groqError = error;
-		console.warn("[AI] Groq plan model failed, trying Gemini:", error.message);
-	}
-
-	try {
-		return await callGeminiChain(prompt, "plan");
-	} catch (geminiError) {
+	} catch (groqError) {
 		throw new Error(
-			`Plan generation failed (Groq: ${groqError?.message || "n/a"}; Gemini: ${geminiError?.message || "n/a"})`,
+			`Plan generation failed (Gemini: ${geminiError?.message || "n/a"}; Groq fallback: ${groqError?.message || "n/a"})`,
 		);
 	}
 }
@@ -1322,7 +1440,7 @@ function parseJSON(text) {
 		if (firstBrace >= 0 && lastBrace > firstBrace) {
 			return JSON.parse(text.slice(firstBrace, lastBrace + 1));
 		}
-		throw _;
+		return parsePossiblyTruncatedJSON(text);
 	}
 }
 
@@ -1356,7 +1474,15 @@ async function parsePlanWithRecovery(rawText, userData, presageData, readiness) 
 			const finalText = await callPlanAI(compactPrompt, {
 				groqPrompt: compactPrompt,
 			});
-			return parseJSON(finalText);
+			try {
+				return parseJSON(finalText);
+			} catch (thirdParseError) {
+				console.warn(
+					"[AI] Final parse failed after compact regenerate, using deterministic fallback:",
+					thirdParseError.message,
+				);
+				return buildDeterministicFallbackPlan(userData, readiness);
+			}
 		}
 	}
 }
@@ -1371,15 +1497,24 @@ export async function generateFitnessPlan(userData, presageData, readiness) {
 			readiness,
 		);
 		let text = await callPlanAI(prompt, { groqPrompt: compactFallbackPrompt });
-		let plan = await parsePlanWithRecovery(
-			text,
-			userData,
-			presageData,
-			readiness,
-		);
+		let plan;
+		try {
+			plan = await parsePlanWithRecovery(
+				text,
+				userData,
+				presageData,
+				readiness,
+			);
+		} catch (parsePipelineError) {
+			console.warn(
+				"[AI] Parse pipeline failed early, switching to deterministic fallback plan:",
+				parsePipelineError.message,
+			);
+			plan = buildDeterministicFallbackPlan(userData, readiness);
+		}
 
 		try {
-			plan = validateAndNormalizeWorkoutPlan(plan, readiness);
+			plan = validateAndNormalizeWorkoutPlan(plan, readiness, userData);
 		} catch (validationError) {
 			console.warn(
 				"[AI] Initial plan invalid, requesting repair:",
@@ -1410,7 +1545,7 @@ export async function generateFitnessPlan(userData, presageData, readiness) {
 			);
 
 			try {
-				plan = validateAndNormalizeWorkoutPlan(plan, readiness);
+				plan = validateAndNormalizeWorkoutPlan(plan, readiness, userData);
 			} catch (finalValidationError) {
 				console.warn(
 					"[AI] Repaired plan still invalid, applying deterministic fallback workout:",
@@ -1420,13 +1555,13 @@ export async function generateFitnessPlan(userData, presageData, readiness) {
 					...plan,
 					workout_plan: buildFallbackWorkoutPlan(plan, readiness, userData),
 				};
-				plan = validateAndNormalizeWorkoutPlan(plan, readiness);
+				plan = validateAndNormalizeWorkoutPlan(plan, readiness, userData);
 			}
 		}
 
 		try {
 			plan = tuneWorkoutPlanForUser(plan, userData, readiness);
-			plan = validateAndNormalizeWorkoutPlan(plan, readiness);
+			plan = validateAndNormalizeWorkoutPlan(plan, readiness, userData);
 		} catch (tuningError) {
 			console.warn(
 				"[AI] Constraint tuning failed, regenerating deterministic workout:",
@@ -1436,7 +1571,7 @@ export async function generateFitnessPlan(userData, presageData, readiness) {
 				...plan,
 				workout_plan: buildFallbackWorkoutPlan(plan, readiness, userData),
 			};
-			plan = validateAndNormalizeWorkoutPlan(plan, readiness);
+			plan = validateAndNormalizeWorkoutPlan(plan, readiness, userData);
 		}
 
 		plan = normalizeAndEnsureDietPlan(plan, userData);
@@ -1449,7 +1584,21 @@ export async function generateFitnessPlan(userData, presageData, readiness) {
 		return plan;
 	} catch (error) {
 		console.error("[AI] Error generating plan:", error);
-		throw new Error("Failed to generate fitness plan. Please try again.");
+		try {
+			console.warn(
+				"[AI] Returning deterministic fallback plan after generation failure.",
+			);
+			const fallback = buildDeterministicFallbackPlan(userData, readiness);
+
+			if (userData.allergies?.length > 0) {
+				validateNoAllergens(fallback, userData.allergies);
+			}
+
+			return fallback;
+		} catch (fallbackError) {
+			console.error("[AI] Fallback plan generation failed:", fallbackError);
+			throw new Error("Failed to generate fitness plan. Please try again.");
+		}
 	}
 }
 

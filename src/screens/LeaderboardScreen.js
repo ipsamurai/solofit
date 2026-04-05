@@ -144,6 +144,8 @@ const styles = StyleSheet.create({
 		backgroundColor: COLORS.surfaceLight,
 		borderWidth: 1.5,
 		borderColor: COLORS.border,
+		borderTopWidth: 3,
+		borderTopColor: COLORS.secondary,
 		borderRadius: BORDER_RADIUS.md,
 		padding: SPACING.md,
 		marginBottom: SPACING.sm,

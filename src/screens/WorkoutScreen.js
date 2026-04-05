@@ -270,6 +270,7 @@ const styles = StyleSheet.create({
 		...FONTS.h1,
 		fontSize: 44,
 		lineHeight: 44,
+		color: COLORS.primaryDark,
 		marginBottom: SPACING.md,
 	},
 	empty: {
@@ -301,12 +302,16 @@ const styles = StyleSheet.create({
 	dayChipActive: { backgroundColor: COLORS.primary },
 	dayChipText: { ...FONTS.caption },
 	dayChipTextActive: { color: COLORS.textDark },
-	focusCard: { marginBottom: SPACING.md },
+	focusCard: {
+		marginBottom: SPACING.md,
+	},
 	focusTitle: { ...FONTS.h2, color: COLORS.primary },
 	focusMeta: { ...FONTS.caption, marginTop: 2 },
 
 	// Exercise card
-	exerciseCard: { marginBottom: SPACING.sm },
+	exerciseCard: {
+		marginBottom: SPACING.sm,
+	},
 	exerciseCardDone: { opacity: 0.55 },
 	exerciseHeader: {
 		flexDirection: "row",

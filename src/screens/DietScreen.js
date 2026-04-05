@@ -318,6 +318,7 @@ const styles = StyleSheet.create({
 		...FONTS.h1,
 		fontSize: 44,
 		lineHeight: 44,
+		color: COLORS.primaryDark,
 		marginBottom: SPACING.md,
 	},
 	empty: {
@@ -328,7 +329,9 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...FONTS.h2, marginTop: SPACING.lg },
 	emptyText: { ...FONTS.bodySmall, textAlign: "center", marginTop: SPACING.sm },
-	summaryCard: { marginBottom: SPACING.lg },
+	summaryCard: {
+		marginBottom: SPACING.lg,
+	},
 	summaryRow: {
 		flexDirection: "row",
 		justifyContent: "space-around",
@@ -355,7 +358,9 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	macroBarFill: { height: "100%", borderRadius: 3 },
-	mealCard: { marginBottom: SPACING.md },
+	mealCard: {
+		marginBottom: SPACING.md,
+	},
 	mealType: { ...FONTS.h3, color: COLORS.primary, marginBottom: SPACING.sm },
 	optionRow: { flexDirection: "row", alignItems: "center" },
 	optionInfo: { flex: 1 },
