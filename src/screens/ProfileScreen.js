@@ -32,7 +32,7 @@ function InfoRow({ label, value }) {
 	);
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
 	const {
 		user,
 		xp,
@@ -141,6 +141,34 @@ export default function ProfileScreen() {
 					</View>
 				</Card>
 
+				<Card style={styles.card}>
+					<Text style={styles.sectionTitle}>Community</Text>
+					<View style={styles.actionsRow}>
+						<TouchableOpacity
+							style={styles.actionBtn}
+							onPress={() => navigation.navigate("Leaderboard")}
+						>
+							<Ionicons
+								name="podium-outline"
+								size={18}
+								color={COLORS.primary}
+							/>
+							<Text style={styles.actionText}>Leaderboard</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={styles.actionBtn}
+							onPress={() => navigation.navigate("Community")}
+						>
+							<Ionicons
+								name="images-outline"
+								size={18}
+								color={COLORS.primary}
+							/>
+							<Text style={styles.actionText}>Share Posts</Text>
+						</TouchableOpacity>
+					</View>
+				</Card>
+
 				<TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
 					<Ionicons name="refresh" size={18} color={COLORS.danger} />
 					<Text style={styles.resetText}>Reset Profile & Re-onboard</Text>
@@ -214,6 +242,19 @@ const styles = StyleSheet.create({
 		color: COLORS.primary,
 		textTransform: "capitalize",
 	},
+	actionsRow: { gap: SPACING.sm },
+	actionBtn: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: SPACING.sm,
+		paddingVertical: SPACING.sm,
+		paddingHorizontal: SPACING.md,
+		borderRadius: BORDER_RADIUS.md,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		backgroundColor: COLORS.surface,
+	},
+	actionText: { ...FONTS.bodySmall, color: COLORS.text },
 	resetBtn: {
 		flexDirection: "row",
 		alignItems: "center",
